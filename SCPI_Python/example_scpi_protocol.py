@@ -2,6 +2,7 @@ import sys
 import time
 import matplotlib.pyplot as plt
 import pyvisa as visa
+from pyvisa.resources import Resource
 import logging
 import socket
 import threading
@@ -9,7 +10,7 @@ import threading
 from common_functions import *
 from struct import unpack
 
-def set_parameters(inst, data_length):
+def set_parameters(inst:Resource, data_length):
     # set sampling freq
     inst.write('FREQ 100 MHZ')
     samp_freq:str = inst.query('FREQ?')
