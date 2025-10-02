@@ -57,12 +57,12 @@ def set_parameters(inst:Resource, data_length):
     tran_type:str = inst.query('TRAN:TYPE?')
     logger.info(f"Transmitter type: {tran_type}")
 
-    #set linear gain value
+    #set constant gain value
     inst.write('GAIN 10')
     gain_level: str = inst.query('GAIN?')
     logger.info(f"Gain level: {gain_level} dB")
 
-    #set gain mode to linear
+    #set gain mode to constant gain
     inst.write('GAIN:TGC:MODE OFF')
     tgc_mode: str = inst.query('GAIN:TGC:MODE?')
     logger.info(f"TGC mode: {tgc_mode}")
@@ -121,7 +121,41 @@ def set_parameters(inst:Resource, data_length):
     trans_damp_gap: str = inst.query('TRAN:DAMP:GAP?')
     logger.info(f"Transmitter damp gap: {trans_damp_gap} ns")
 
+def set_tgc_linear_mode(inst: Resource, offset: float, slope: float):
 
+    # configure linear tgc: slope in dB/us, offset in us
+    inst.write(f'SOURce:GAIN:TGC:LINear {offset}, {slope}')
+    answ = inst.query(f'SOURce:GAIN:TGC:LINear?')
+
+    parts = answ.split(",")
+    assert len(parts) == 2, 'Wrong getting linear tgc answer'
+    triple = tuple(map(float, parts))
+
+    assert (offset, slope) == triple, f'An error in tgc setter/getter Sent {(offset, slope)}. Revceived: {triple}'
+    
+    # set tgc mode to linear
+    inst.write(f'SOURce:GAIN:TGC:MODE LINear')
+    mode = inst.query('SOURce:GAIN:TGC:MODE?')
+    assert mode == 'LINear', f'Error setting tgc mode to linear. Received: {mode}'
+    logger.info(f'TGC mode: {mode}')
+
+def set_tgc_arbitrary_mode(inst: Resource, time_points: list, gain_points: list):
+    # from lists to string time,gain,time,gain,...
+    params = ",".join(f"{x},{y}" for x, y in zip(time_points, gain_points))
+
+    # configure arbitrary tgc curve
+    inst.write(f'SOURce:GAIN:TGC:ARBitrary {params}')
+
+    answ = inst.query(f'SOURce:GAIN:TGC:ARBitrary?')
+    logger.info(f'TGC arbitrary curve from device {answ}')
+    
+    # set tgc mode to arbitrary
+    inst.write(f'SOURce:GAIN:TGC:MODE ARBitrary')
+    mode = inst.query(f'SOURce:GAIN:TGC:MODE?')
+    assert mode == 'ARBitrary', f'Error setting tgc mode to arbitrary. Received: {mode}'
+    logger.info(f'TGC mode: {mode}')
+
+    
 def unpack_and_plot_data(data):
     if not data:
         logger.info("No data to unpack and plot.")
@@ -174,6 +208,18 @@ data_length = 8*1024
 
 #program device
 set_parameters(inst, data_length)
+
+do_use_linear_tgc = False # True to use linear tgc
+# set tgc mode to linear with 10us offset and 0.22 dB/us slope
+if do_use_linear_tgc:
+    set_tgc_linear_mode(inst, 10, 0.22)
+    
+do_use_arbitrary_tgc = False # True to use arbitrary tgc
+# set tgc mode to arbitrary with given points
+if do_use_arbitrary_tgc:
+    time_points = [0, 2, 5, 10, 30]
+    dbs = [5, 20, 20, 40, 10]
+    set_tgc_arbitrary_mode(inst, time_points, dbs)
 
 #check data length
 length: str = inst.query('DATA:LENG?')
