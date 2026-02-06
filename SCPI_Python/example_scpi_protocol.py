@@ -43,8 +43,8 @@ def set_parameters(inst:Resource, data_length):
     logger.info(f"Transmitter duration: {trans_periods}")
 
     #reverse polarity off
-    inst.write('TRAN:MODE OFF')
-    trans_reverse_polarity: str = inst.query('TRAN:MODE?')
+    inst.write('TRAN:REVerse OFF')
+    trans_reverse_polarity: str = inst.query('TRAN:REVerse?')
     logger.info(f"Transmitter reverse polarity: {trans_reverse_polarity}")
 
     #enable transmitter damp
@@ -102,12 +102,12 @@ def set_parameters(inst:Resource, data_length):
     constant_delay_auto: str = inst.query('AVERage:DELay:CONStant:AUTO?')
     logger.info(f"Constant delay auto: {constant_delay_auto}")
 
-    constant_delay: str = inst.query('AVERage:PERiod?')
+    constant_delay: str = inst.query('AVERage:DELay:CONStant?')
     logger.info(f"Constant delay: {constant_delay} s")
 
     #random delay
-    inst.write('AVERage:PERiod:RANDom 2000 NS')
-    random_delay: str = inst.query('AVERage:PERiod:RANDom?')
+    inst.write('AVERage:DELay:RANDom 2000 NS')
+    random_delay: str = inst.query('AVERage:DELay:RANDom?')
     logger.info(f"Random delay: {random_delay} s")
 
     #debug parameters
@@ -175,7 +175,7 @@ stream_handler = logging.StreamHandler(sys.stdout)
 logger.addHandler(stream_handler)
 logger.info('Start SCPI communication on A1580...')
 
-ip: str = '192.168.0.11'
+ip: str = '192.168.200.18'
 cmd_port: int = 5025    #scpi command port
 data_port: int = 2758   #data port
 
@@ -225,59 +225,18 @@ if do_use_arbitrary_tgc:
 length: str = inst.query('DATA:LENG?')
 logger.info(length)
 
+#get data port number
+data_port_str: str = inst.query('DATA:PORT?')
+data_port = int(data_port_str)
+
 ascan_header_size = 28  #ascan header size in bytes
 length_bytes = data_length*2 +ascan_header_size #vector length in bytes
-
-#read single ascan
-
-data: dict = {}
-# Create a TCP/IP socket
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-    s.connect((ip, data_port))
-    logger.info("Connected to data port")
-
-    #request single ascan measurement
-    inst.write(f'STAR SING')
-
-    # Read data 
-    s.settimeout(1.0)  # Set a timeout for the socket to prevent hanging, seconds
-    try:      
-        data[0] = s.recv(length_bytes) # receive data from the socket
-        if not data[0]:
-            logger.info("No data received")
-        else:
-            logger.info(f"Received data of length {len(data[0])}")
-    except socket.timeout:
-        logger.error("Socket timeout, no data received")
-    except Exception as e:
-        logger.error(f"Error while receiving data: {e}")    
-    
-unpack_and_plot_data(data)
-
 
 #measure single ascans in cycle
 stop_event = threading.Event()
 data = {}
 
-#create a separate thread to read data via the data port
-data_thread = threading.Thread(target=read_binary_data, args=(ip, data_port, stop_event, data, length_bytes))
-data_thread.start()
-
 duration_in_seconds = 5
-
-start_time = time.time()
-
-while time.time() - start_time < duration_in_seconds:
-    # start measurement (single ascan)
-    inst.write(f'STAR SING')
-    time.sleep(0.5)
-
-stop_event.set()    #stop data reading thread
-data_thread.join()   #wait for thread to finish
-
-unpack_and_plot_data(data)
-plt.show()  # Show all plots
-
 #measure and read data in auto mode
 data = {}
 stop_event.clear()
