@@ -1,0 +1,10 @@
+# Python dependencies for A1580 REST API examples
+# Install with: pip install -r requirements.txt
+
+# Requests library for making HTTP/REST API calls
+# This is the main library used for network communication
+requests>=2.25.0
+
+# WebSocket client library for real-time data streaming
+# Used to receive A-scan data from the device
+websocket-client>=1.0.0
