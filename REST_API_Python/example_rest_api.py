@@ -62,6 +62,10 @@ WEBSOCKET_PORT = 80
 # Format: http://<device-ip>:<port>/api/v1/
 BASE_URL = f"http://{DEVICE_IP}:{REST_PORT}/api/v1/"
 
+# Build the configuration API URL for grouped network settings
+# Format: http://<device-ip>:<port>/config/
+CONFIG_BASE_URL = f"http://{DEVICE_IP}:{REST_PORT}/config/"
+
 # Build the WebSocket URL for data streaming
 # Format: ws://<device-ip>:<port>
 WEBSOCKET_URL = f"ws://{DEVICE_IP}:{WEBSOCKET_PORT}"
@@ -222,6 +226,45 @@ def set_parameter(parameter_name, value):
         return False
 
 
+def network_parameters_example():
+    """
+    Example: Read and write network parameters using /config.
+    Write operations re-apply currently read values to keep the demo safe.
+    """
+
+    print("Example 1b: Network Parameters")
+    print("Reading and writing network settings via /config.")
+
+    # /config grouped objects
+    try:
+        eth_response = requests.get(CONFIG_BASE_URL + "dev.eth", timeout=5)
+        wlan_response = requests.get(CONFIG_BASE_URL + "dev.wlan", timeout=5)
+
+        if eth_response.status_code == 200:
+            eth_config = eth_response.json().get("data", {})
+            print(f"\nRead /config/dev.eth: {json.dumps(eth_config)}")
+            if "ip_address" in eth_config:
+                requests.post(
+                    CONFIG_BASE_URL + "dev.eth",
+                    json={"ip_address": eth_config["ip_address"]},
+                    timeout=5,
+                )
+                print("Re-applied /config/dev.eth")
+        else:
+            print(f"\nRead /config/dev.eth failed: {eth_response.status_code} {eth_response.text}")
+
+        if wlan_response.status_code == 200:
+            wlan_config = wlan_response.json().get("data", {})
+            print(f"Read /config/dev.wlan: {json.dumps(wlan_config)}")
+            requests.post(CONFIG_BASE_URL + "dev.wlan", json=wlan_config, timeout=5)
+            print("Re-applied /config/dev.wlan")
+        else:
+            print(f"Read /config/dev.wlan failed: {wlan_response.status_code} {wlan_response.text}")
+
+    except Exception as e:
+        print(f"Network config example failed: {str(e)}")
+
+
 def check_device_connection():
     """
     Test if the device is reachable and responding.
@@ -237,6 +280,7 @@ def check_device_connection():
     print(f"Device IP: {DEVICE_IP}")
     print(f"REST Port: {REST_PORT}")
     print(f"Base URL: {BASE_URL}")
+    print(f"Config URL: {CONFIG_BASE_URL}")
     
     # Try to read the device type - a simple read-only parameter
     # This is a good test because it should always work if the device is online
@@ -584,6 +628,12 @@ def main():
     print(f"  Hostname:          {hostname}")
     
     time.sleep(1)  # Longer delay before next section
+
+    # =========================================================================
+    # Example 1b: Network Parameters
+    # =========================================================================
+    network_parameters_example()
+    time.sleep(1)
     
     
     # =========================================================================

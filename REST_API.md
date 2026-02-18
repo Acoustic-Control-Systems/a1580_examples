@@ -4,7 +4,8 @@
 
 The A1580 firmware provides a JSON-based REST API for device configuration and control. The API runs on a configurable TCP port (default: 80) and provides access to device parameters through simple HTTP requests.
 
-**Base URL:** `http://<device-ip>:<rest_port>/api/v1/`
+**Runtime parameters base URL:** `http://<device-ip>:<rest_port>/api/v1/`
+**Configuration objects base URL:** `http://<device-ip>:<rest_port>/config/`
 
 ## Request/Response Format
 
@@ -25,6 +26,7 @@ The A1580 firmware provides a JSON-based REST API for device configuration and c
   "value": "<string|number>"
 }
 ```
+This format applies to `/api/v1/*` endpoints. `/config/*` endpoints use object payloads defined in the Configuration API section below.
 
 **Response:**
 ```json
@@ -172,8 +174,6 @@ Invoke-RestMethod -Method Post -Uri 'http://192.168.200.18:8080/api/v1/sampling_
 }
 ```
 
-
-
 ### Error: Out of Range
 ```bash
 # Try to set sampling frequency to invalid value (too high)
@@ -302,6 +302,158 @@ curl -X POST \
 }
 ```
 
+## Configuration API (`/config`)
+
+The `/config` namespace provides grouped network configuration objects intended for programmatic read/write access.
+
+**Base URL:** `http://<device-ip>:<rest_port>/config/`
+
+### HTTP Methods
+
+| Method | Endpoint | Purpose | Body Required |
+|--------|----------|---------|---------------|
+| `GET` | `dev.eth` | Read ethernet configuration | No |
+| `POST` | `dev.eth` | Update ethernet configuration | Yes (JSON object) |
+| `GET` | `dev.wlan` | Read Wi-Fi AP configuration | No |
+| `POST` | `dev.wlan` | Update Wi-Fi AP configuration | Yes (JSON object) |
+
+### Payload Definitions
+
+#### Ethernet Configuration (`dev.eth`)
+```json
+{
+  "ip_address": "192.168.200.18"
+}
+```
+
+#### Wi-Fi AP Configuration (`dev.wlan`)
+```json
+{
+  "ap_address": "192.168.210.1",
+  "ap_type": "2G",
+  "ap_value": {
+    "2G": {
+      "ssid": "SSID_2G",
+      "pass": "PASSWORD"
+    },
+    "5G": {
+      "ssid": "SSID_5G",
+      "pass": "PASSWORD"
+    }
+  }
+}
+```
+
+### `/config` Examples
+
+#### GET `dev.eth`
+```bash
+curl -X GET "http://192.168.200.18:80/config/dev.eth"
+```
+
+```powershell
+Invoke-RestMethod -Method Get -Uri "http://192.168.200.18:80/config/dev.eth"
+```
+
+**Response (200 OK):**
+```json
+{
+  "status": "success",
+  "data": {
+    "ip_address": "192.168.200.18"
+  }
+}
+```
+
+#### POST `dev.eth`
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"ip_address":"192.168.200.18"}' \
+  "http://192.168.200.18:80/config/dev.eth"
+```
+
+```powershell
+Invoke-RestMethod -Method Post -Uri "http://192.168.200.18:80/config/dev.eth" -ContentType "application/json" -Body '{"ip_address":"192.168.200.18"}'
+```
+
+**Response (200 OK):**
+```json
+{
+  "status": "success",
+  "data": {
+    "ip_address": "192.168.200.18"
+  }
+}
+```
+
+#### GET `dev.wlan`
+```bash
+curl -X GET "http://192.168.200.18:80/config/dev.wlan"
+```
+
+```powershell
+Invoke-RestMethod -Method Get -Uri "http://192.168.200.18:80/config/dev.wlan"
+```
+
+**Response (200 OK):**
+```json
+{
+  "status": "success",
+  "data": {
+    "ap_address": "192.168.210.1",
+    "ap_type": "2G",
+    "ap_value": {
+      "2G": {
+        "ssid": "SSID_2G",
+        "pass": "PASSWORD"
+      },
+      "5G": {
+        "ssid": "SSID_5G",
+        "pass": "PASSWORD"
+      }
+    }
+  }
+}
+```
+
+#### POST `dev.wlan`
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"ap_address":"192.168.210.1","ap_type":"2G","ap_value":{"2G":{"ssid":"SSID_2G","pass":"PASSWORD"},"5G":{"ssid":"SSID_5G","pass":"PASSWORD"}}}' \
+  "http://192.168.200.18:80/config/dev.wlan"
+```
+
+```powershell
+Invoke-RestMethod -Method Post -Uri "http://192.168.200.18:80/config/dev.wlan" -ContentType "application/json" -Body '{"ap_address":"192.168.210.1","ap_type":"2G","ap_value":{"2G":{"ssid":"SSID_2G","pass":"PASSWORD"},"5G":{"ssid":"SSID_5G","pass":"PASSWORD"}}}'
+```
+
+**Response (200 OK):**
+```json
+{
+  "status": "success",
+  "data": {
+    "ap_address": "192.168.210.1",
+    "ap_type": "2G",
+    "ap_value": {
+      "2G": {
+        "ssid": "SSID_2G",
+        "pass": "PASSWORD"
+      },
+      "5G": {
+        "ssid": "SSID_5G",
+        "pass": "PASSWORD"
+      }
+    }
+  }
+}
+```
+
+### `/config` Errors
+
+`/config` endpoints return the same error envelope and error code set documented above.
+
 ## CORS Support
 
 The API includes CORS headers to allow cross-origin requests from web applications:
@@ -322,17 +474,18 @@ The API includes CORS headers to allow cross-origin requests from web applicatio
 ### 404 Not Found
 - Verify REST API port is correct and matches device configuration
 - Check that firmware was rebuilt and deployed after adding `rest_port` configuration
-- Ensure path starts with `/api/v1/`
+- Ensure path starts with `/api/v1/` or `/config/`
 
 ### Connection Refused
 - Verify device is running and accessible at the specified IP
-- Check that REST port matches configuration (default: 8080)
+- Check that REST port matches configuration (default: 80)
 - Confirm firewall settings allow incoming connections
 
 ### Request Body Not Parsed
 - Ensure `Content-Type: application/json` header is present
 - Include `Content-Length` header (curl adds this automatically)
-- Verify JSON body contains `"value"` field
+- For `/api/v1/*`, verify JSON body contains `"value"` field
+- For `/config/*`, verify JSON body matches the endpoint object schema
 
 ### Value Rejected
 - Check error response `details.expected` field for valid range or list
