@@ -75,6 +75,47 @@ The API provides granular error reporting with the following error codes:
 | `PUT` | Set parameter value (alias for POST) | Yes (JSON with "value" field) |
 | `OPTIONS` | CORS preflight | No |
 
+## User Data Endpoint
+
+The firmware provides a separate endpoint for storing an opaque user-defined payload:
+
+- `GET /config/user-data` returns the stored payload as `application/octet-stream`.
+- `POST /config/user-data` replaces the stored payload.
+- If no payload has been stored, `GET` returns `200 OK` with an empty body.
+- Empty `POST` bodies are rejected.
+- The maximum payload size is 256 KiB (`262144` bytes).
+
+### GET User Data
+
+```bash
+curl -X GET "http://192.168.200.18/config/user-data" --output user-data.bin
+```
+
+```powershell
+Invoke-WebRequest -Method Get -Uri "http://192.168.200.18/config/user-data" -OutFile "user-data.bin"
+```
+
+### POST User Data
+
+```bash
+curl -X POST \
+  -H "Content-Type: application/octet-stream" \
+  --data-binary @user-data.bin \
+  "http://192.168.200.18/config/user-data"
+```
+
+```powershell
+$bytes = [System.IO.File]::ReadAllBytes("user-data.bin")
+Invoke-RestMethod -Method Post -Uri "http://192.168.200.18/config/user-data" -ContentType "application/octet-stream" -Body $bytes
+```
+
+**Response (200 OK):**
+```json
+{
+  "status": "success"
+}
+```
+
 ## Available Parameters
 
 The API provides access to the following parameter categories:
@@ -86,6 +127,15 @@ The API provides access to the following parameter categories:
 - `serial_number` — Device serial number
 - `protocol_version` — Protocol version
 - `firmware_version` — Firmware version
+
+### Network Configuration
+- `ip_address` — Ethernet IP address
+- `ap_address` — Wi-Fi AP IP address
+- `ap_type` — Wi-Fi AP band, `2G` or `5G`
+- `ssid_2g` — SSID for the 2.4 GHz AP
+- `pass_2g` — Password for the 2.4 GHz AP
+- `ssid_5g` — SSID for the 5 GHz AP
+- `pass_5g` — Password for the 5 GHz AP
 
 ### Acquisition Settings
 - `sampling_freq` — Sampling frequency in MHz (see list of available freqs in SCPI)
@@ -172,6 +222,18 @@ Invoke-RestMethod -Method Post -Uri 'http://192.168.200.18:8080/api/v1/sampling_
     "sampling_freq": "100"
   }
 }
+```
+
+### Network Configuration Requests
+```bash
+# Get the 2.4 GHz AP SSID
+curl -X GET "http://192.168.200.18:8080/api/v1/ssid_2g"
+
+# Switch the AP to 5 GHz
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"value":"5G"}' \
+  "http://192.168.200.18:8080/api/v1/ap_type"
 ```
 
 ### Error: Out of Range
