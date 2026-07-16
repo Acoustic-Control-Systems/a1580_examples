@@ -22,6 +22,25 @@ Manufacturer, Model, Serial number, Firmware version
 < ACS-Solutions GmbH,A1580-HF,100500,1.6.b41
 ```
 
+# IEEE 488.2 Common Commands
+
+The following common commands are registered by the SCPI implementation:
+
+| Command | Description | Query response |
+|---|---|---|
+| `*CLS` | Clear the status data structures and error queue. | None |
+| `*ESE <numeric>` | Set the Standard Event Status Enable register. | None |
+| `*ESE?` | Query the Standard Event Status Enable register. | `<numeric>` |
+| `*ESR?` | Query and clear the Standard Event Status register. | `<numeric>` |
+| `*OPC` | Set the Operation Complete event when pending operations finish. | None |
+| `*OPC?` | Wait for pending operations to finish. | `1` |
+| `*RST` | Reset the instrument. | None |
+| `*SRE <numeric>` | Set the Service Request Enable register. | None |
+| `*SRE?` | Query the Service Request Enable register. | `<numeric>` |
+| `*STB?` | Query the Status Byte register. | `<numeric>` |
+| `*TST?` | Run the instrument self-test. | `0` when the test passes |
+| `*WAI` | Wait for pending operations to finish before processing subsequent commands. | None |
+
 # SYSTem Subsystem
 
 ## Error message queue number
@@ -31,7 +50,7 @@ This method reads out error message queue.
 
 **Syntax:**
 ```
-SYSTem:ERRor?
+SYSTem:ERRor[:NEXT]?
 ```
 
 **Query Response:**
@@ -45,6 +64,32 @@ SYSTem:ERRor?
 > SYSTem:ERRor?
 -113,"Undefined header;Command: SYST:ERRrr"
 ```
+
+## Error queue count
+
+**Description:**
+Returns the number of entries currently stored in the error queue.
+
+**Syntax:**
+```
+SYSTem:ERRor:COUNt?
+```
+
+**Query Response:**
+`<numeric>`
+
+## SCPI version
+
+**Description:**
+Returns the SCPI standard version supported by the implementation.
+
+**Syntax:**
+```
+SYSTem:VERSion?
+```
+
+**Query Response:**
+`<numeric>`
 
 # SOURce Subsystem
 
@@ -63,7 +108,7 @@ This property gets or sets frequency in Hz for AD conversion of the input signal
 <char> = {MINimum | MAXimum | DEFault | UP | DOWN}
 - MINimum - 1 MHz
 - MAXimum - 100 MHz
-- DEFault - 1 MHz
+- DEFault - 100 MHz
 - UP - increases the current value
 - DOWN - decreases the current value
 
@@ -115,7 +160,7 @@ After starting acquisition, the instrument will send acquired data to the contro
 
 **Syntax:**
 ```
-DATA:PORT?
+[:SOURce]:DATA:PORT?
 ```
 
 **Example:**
@@ -126,6 +171,30 @@ DATA:PORT?
 
 **Query Response:**
 <numeric> in range from 0 to 65535
+
+## Operating mode
+
+**Description:**
+Selects whether the instrument operates as the master or as a slave device.
+
+**Syntax:**
+```
+[:SOURce]:MODE <char>
+[:SOURce]:MODE?
+```
+
+**Parameters:**
+`<char> = {MASTer | SLAVe}`
+
+**Query Response:**
+`{MASTer | SLAVe}`
+
+**Example:**
+```
+> MODE MASTER
+> MODE?
+< MASTER
+```
 
 ## Transmitter enable
 
@@ -190,7 +259,7 @@ This property defines the initial polarity of the pulse burst generated at the t
 **Syntax:**
 ```
 [SOURce:]TRANsmitter:REVerse <char>
-[SOURce:]TRANsmitter:REVerse ?
+[SOURce:]TRANsmitter:REVerse?
 ```
 
 **Parameters:**
@@ -299,34 +368,34 @@ This property sets or gets number of periods in transmitter burst.
 < 5
 ```
 
-## Transmitter burst period
+## Transmitter pulse gap
 
 **Description:**
-This property sets or gets the period in seconds for a pulse burst sent to a transmitting transducer.
+This property sets or gets the gap between transmitter pulses. The value is expressed in nanoseconds internally.
 
 **Syntax:**
 ```
-[SOURce:]TRANsmitter:PERiod <time|char>
-[SOURce:]TRANsmitter:PERiod?
+[:SOURce]:TRANsmitter:GAP <time|char>
+[:SOURce]:TRANsmitter:GAP?
 ```
 
 **Parameters:**
 <char> = {MINimum | MAXimum | DEFault | UP | DOWN}
-<time> = {10 to 250 NS}
-- MINimum - 10 NS
-- MAXimum - 250 NS
-- DEFault - 140 NS
-- UP - increases the current value by 10 NS
-- DOWN - decreases the current value by 10 NS
+<time> = {0 to 500 NS}
+- MINimum - 0 NS
+- MAXimum - 500 NS
+- DEFault - 5 NS
+- UP - increases the current value by 5 NS
+- DOWN - decreases the current value by 5 NS
 
 **Query Response:**
-<time> in seconds
+<numeric> in nanoseconds
 
 **Example:**
 ```
-> TRAN:PER 200 NS
-> TRAN:PER?
-< 200E-9
+> TRAN:GAP 200 NS
+> TRAN:GAP?
+< 200
 ```
 
 ## Acquisition triggering mode
@@ -341,11 +410,14 @@ This property is used to choose which event initiates an acquisition.
 ```
 
 **Parameters:**
-<char> = {INTernal}
+<char> = {INTernal | CTP | ENCoder | TTL}
 - INTernal – Periodic mode with internal triggering: One acquisition will be performed every Triggering Interval seconds.
+- CTP – Trigger from the CTP input.
+- ENCoder – Trigger from the encoder input.
+- TTL – Trigger from the TTL input.
 
 **Query Response:**
-{INTernal}
+`{INTernal | CTP | ENCoder | TTL}`
 
 **Example:**
 ```
@@ -385,6 +457,37 @@ This property sets or gets time in seconds between two consecutive acquisition i
 < 100.0E-3
 ```
 
+## Acquisition trigger delay
+
+**Description:**
+Sets or gets the delay between a trigger event and acquisition. The implementation stores the value in nanoseconds.
+
+**Syntax:**
+```
+[:SOURce]:TRIGgering:DELay <time|char>
+[:SOURce]:TRIGgering:DELay?
+```
+
+**Parameters:**
+<time> = {0 to 2147483647 NS}
+<char> = {MINimum | MAXimum | DEFault | UP | DOWN}
+
+- MINimum - 0 NS
+- MAXimum - 2147483647 NS
+- DEFault - 15000 NS
+- UP - increases the current value by 1 NS
+- DOWN - decreases the current value by 1 NS
+
+**Query Response:**
+`<numeric>` in nanoseconds
+
+**Example:**
+```
+> TRIG:DEL 15 US
+> TRIG:DEL?
+< 15000
+```
+
 ## Start acquisition
 
 **Description:**
@@ -418,36 +521,6 @@ The method is used to stop a sequence of measurements. Stop is not needed in the
 ```
 >SOUR:STOP
 >STOP
-```
-
-## ADC sampling rate
-
-**Description:**
-This property gets or sets frequency in Hz for AD conversion of the input signal.
-
-**Syntax:**
-```
-[SOURce:]FREQuency <numeric|char>
-[SOURce:]FREQuency?
-```
-
-**Parameters:**
-<numeric> { 1 | 2 | 5 | 10 | 25 | 50 | 100} in MHz
-<char> = {MINimum | MAXimum | DEFault | UP | DOWN}
-- MINimum - 1 MHz
-- MAXimum - 100 MHz
-- DEFault - 100 MHz
-- UP - increases the current value (next in the list)
-- DOWN - decreases the current value (previous in the list)
-
-**Query Response:**
-<numeric> in Hz
-
-**Example:**
-```
-> FREQ 100 MHZ
-> FREQ?
-< 100000000
 ```
 
 ## Constant gain at input
@@ -507,6 +580,37 @@ This property enables or disables the pulse damping
 < 0
 ```
 
+## Transmitter damping gap
+
+**Description:**
+Sets or gets the timing gap used by the transmitter damping circuit. The value is expressed in nanoseconds internally.
+
+**Syntax:**
+```
+[:SOURce]:TRANsmitter:DAMP:GAP <time|char>
+[:SOURce]:TRANsmitter:DAMP:GAP?
+```
+
+**Parameters:**
+<time> = {10 to 500 NS}
+<char> = {MINimum | MAXimum | DEFault | UP | DOWN}
+
+- MINimum - 10 NS
+- MAXimum - 500 NS
+- DEFault - 10 NS
+- UP - increases the current value by 5 NS
+- DOWN - decreases the current value by 5 NS
+
+**Query Response:**
+`<numeric>` in nanoseconds
+
+**Example:**
+```
+> TRAN:DAMP:GAP 20 NS
+> TRAN:DAMP:GAP?
+< 20
+```
+
 ## Input impedance
 
 **Description:**
@@ -533,6 +637,54 @@ This property sets/gets the input impedance in Ohms
 > TRAN:IMP HIGH
 > TRAN:IMP?
 < HIGH
+```
+
+## Combined preamplifier
+
+**Description:**
+Enables or disables the combined preamplifier path. This adds 20dB to the gain of the preamplifier. The combined preamplifier path is used for low signal levels.
+
+**Syntax:**
+```
+[:SOURce]:GAIN:PREamp:COMBined <char>
+[:SOURce]:GAIN:PREamp:COMBined?
+```
+
+**Parameters:**
+`<char> = {OFF | ON | 0 | 1}`
+
+**Query Response:**
+`{0 | 1}`
+
+**Example:**
+```
+> GAIN:PRE:COMB ON
+> GAIN:PRE:COMB?
+< 1
+```
+
+## Split preamplifier
+
+**Description:**
+Enables or disables the split preamplifier path. This adds 20dB to the gain of the preamplifier. The split preamplifier path is used for low signal levels.
+
+**Syntax:**
+```
+[:SOURce]:GAIN:PREamp:SPLIT <char>
+[:SOURce]:GAIN:PREamp:SPLIT?
+```
+
+**Parameters:**
+`<char> = {OFF | ON | 0 | 1}`
+
+**Query Response:**
+`{0 | 1}`
+
+**Example:**
+```
+> GAIN:PRE:SPLIT ON
+> GAIN:PRE:SPLIT?
+< 1
 ```
 
 ## TGC Mode
@@ -672,16 +824,16 @@ SENSe:AVERage:COUNt?
 < 5
 ```
 
-## Constant averaging interval
+## Constant averaging delay
 
 **Description:**
 This property is defined in seconds and gets or sets a constant part of an interval between acquisitions in averaging mode.
-When A1570 performs several pulses/acquisitions in a row for the following averaging, a pause will take place after an acquisition is finished. It is calculated as FixedDelay + Constant averaging interval + RandomInterval, where FixedDelay is a hardware delay of 22μs and  RandomInterval is a random number in a range from 0 to Random averaging interval.
+When A1580 performs several pulses/acquisitions in a row for the following averaging, a pause will take place after an acquisition is finished. It is calculated as FixedDelay + Constant averaging interval + RandomInterval, where FixedDelay is a hardware delay of 22μs and  RandomInterval is a random number in a range from 0 to Random averaging interval.
 
 **Syntax:**
 ```
-[SENSe:]AVERage:PERiod<time|char>
-[SENSe:]AVERage:PERiod?
+[:SENSe]:AVERage:DELay:CONStant[:VALue] <time|char>
+[:SENSe]:AVERage:DELay:CONStant[:VALue]?
 ```
 
 **Parameters:**
@@ -699,21 +851,50 @@ When A1570 performs several pulses/acquisitions in a row for the following avera
 
 **Example:**
 ```
-> SENSe:AVERage:PERiod 50 US
-> SENSe:AVERage:PERiod?
+> SENSe:AVERage:DELay:CONStant 50 US
+> SENSe:AVERage:DELay:CONStant?
 < 50.0E-6
 ```
 
-## Random averaging interval
+## Auto computing constant averaging delay
 
 **Description:**
-This property is defined in seconds and gets or sets a random part of an interval between acquisitions in averaging mode.
-When A1570 performs several pulses/acquisitions in a row for the following averaging a pause will take place after an acquisition is finished. It is calculated as FixedDelay + Constant averaging interval + RandomInterval, where FixedDelay is a hardware delay of 22μs and  RandomInterval is a random number in a range from 0 to Random averaging interval.
+This flag enables or disables automatic computing of constant averaging delay. When enabled, the instrument will automatically calculate the constant averaging delay based on the number of acquisitions per averaged vector and the sampling rate. When disabled, the user can manually set the constant averaging delay.
+
+If auto computing is enabled, setting of the constant averaging delay will be ignored, a SCPI error ```-221, "Settings conflict"``` will be generated if the user tries to set it.
 
 **Syntax:**
 ```
-[SENSe:]AVERage:PERiod:RANDom <time|char>
-[SENSe:]AVERage:PERiod:RANDom?
+[:SENSe]:AVERage:DELay:CONStant:AUTO <char>
+[:SENSe]:AVERage:DELay:CONStant:AUTO?
+```
+
+**Parameters:**
+<char> = {ON | OFF}
+
+- ON - enables automatic computing of constant averaging delay
+- OFF - disables automatic computing of constant averaging delay
+
+**Query Response:**
+<char>
+
+**Example:**
+```
+> SENSe:AVERage:DELay:CONStant:AUTO ON
+> SENSe:AVERage:DELay:CONStant:AUTO?
+< ON
+```
+
+## Random averaging delay
+
+**Description:**
+This property is defined in seconds and gets or sets a random part of an interval between acquisitions in averaging mode.
+When A1580 performs several pulses/acquisitions in a row for the following averaging a pause will take place after an acquisition is finished. It is calculated as FixedDelay + Constant averaging interval + RandomInterval, where FixedDelay is a hardware delay of 22μs and  RandomInterval is a random number in a range from 0 to Random averaging interval.
+
+**Syntax:**
+```
+[:SENSe]:AVERage:DELay:RANDom <time|char>
+[:SENSe]:AVERage:DELay:RANDom?
 ```
 
 **Parameters:**
@@ -731,8 +912,8 @@ When A1570 performs several pulses/acquisitions in a row for the following avera
 
 **Example:**
 ```
-> SENSe:AVER:PER:RAND 2 US
-> SENSe:AVER:PER:RAND?
+> SENSe:AVER:DELay:RAND 2 US
+> SENSe:AVER:DELay:RAND?
 < 2.0E-6
 ```
 
@@ -744,7 +925,7 @@ This property selects an analog filter at the input of %INSTR%.The command takes
 **Syntax:**
 ```
 [:SENSe]:FILTer:HPASs:INDex <char>
-[:SENSe]:FILTer:HPASs:INDex
+[:SENSe]:FILTer:HPASs:INDex?
 ```
 
 **Parameters:**
