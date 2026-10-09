@@ -31,7 +31,7 @@ This method reads out error message queue.
 
 **Syntax:**
 ```
-SYSTem:ERRor?
+SYSTem:ERRor[:NEXT]?
 ```
 
 **Query Response:**
@@ -44,6 +44,44 @@ SYSTem:ERRor?
 > SYSTem:ERRrr?
 > SYSTem:ERRor?
 -113,"Undefined header;Command: SYST:ERRrr"
+```
+
+## Error message queue count
+
+**Description:**
+Returns the number of queued SCPI errors without removing them.
+
+**Syntax:**
+```
+SYSTem:ERRor:COUNt?
+```
+
+**Query Response:**
+<numeric> - number of queued errors
+
+**Example:**
+```
+> SYST:ERR:COUN?
+< 0
+```
+
+## SCPI standard version
+
+**Description:**
+Returns the supported SCPI standard version. This is not the device firmware version; use *IDN? for firmware identity.
+
+**Syntax:**
+```
+SYSTem:VERSion?
+```
+
+**Query Response:**
+SCPI standard version
+
+**Example:**
+```
+> SYST:VERS?
+< 1999.0
 ```
 
 # SOURce Subsystem
@@ -63,7 +101,7 @@ This property gets or sets frequency in Hz for AD conversion of the input signal
 <char> = {MINimum | MAXimum | DEFault | UP | DOWN}
 - MINimum - 1 MHz
 - MAXimum - 100 MHz
-- DEFault - 1 MHz
+- DEFault - 100 MHz
 - UP - increases the current value
 - DOWN - decreases the current value
 
@@ -121,7 +159,7 @@ DATA:PORT?
 **Example:**
 ```
 > DATA:PORT?
-< 5025
+< 2758
 ```
 
 **Query Response:**
@@ -146,13 +184,13 @@ This property defines if the transmitter generates pulse
 - ON or 1 – pulse will be generated according to other transmitter settings (amplitude, polarity, duration, frequency).
 
 **Query Response:**
-{OFF | ON }
+{0 | 1}
 
 **Example:**
 ```
 > TRAN:ENAB ON
 > TRAN:ENABLE?
-< ON
+< 1
 ```
 
 ## Transmitter type
@@ -168,12 +206,14 @@ This property defines the type of transducer used with the instrument.
 
 **Parameters:**
 <char> = {DUAL | SINGle}
-- DEFault -  SINGle
+- DEFault - DUAL
 - DUAL - Dual-crystal transducer or trough transmission. Pulse burst will be generated at the “OUT” socket of A1580.
 - SINGle - Single-crystal transducer. Pulse burst will be generated at the “IN” socket of A1580.
 
 **Query Response:**
 {DUAL | SINGle}
+
+The getter can also return DIAGnostic if diagnostic routing was selected through another protocol. The SCPI setter accepts only DUAL and SINGle.
 
 **Example:**
 ```
@@ -190,7 +230,7 @@ This property defines the initial polarity of the pulse burst generated at the t
 **Syntax:**
 ```
 [SOURce:]TRANsmitter:REVerse <char>
-[SOURce:]TRANsmitter:REVerse ?
+[SOURce:]TRANsmitter:REVerse?
 ```
 
 **Parameters:**
@@ -200,13 +240,13 @@ This property defines the initial polarity of the pulse burst generated at the t
 - ON or 1 – the burst starts with the negative pulse.
 
 **Query Response:**
-{OFF | ON | 0 | 1}
+{0 | 1}
 
 **Example:**
 ```
 > TRAN:REV ON
 > TRAN:REV?
-< ON
+< 1
 ```
 
 ## Transmitter pulse amplitude 
@@ -221,10 +261,10 @@ This property sets or gets an amplitude in volts for a pulse burst sent to a tra
 ```
 
 **Parameters:**
-<numeric> = {5 ... 100}
+<numeric> = {5 ... 200}
 <char> = {MINimum | MAXimum | DEFault | UP | DOWN}
 - MINimum - 5 V
-- MAXimum - 100 V
+- MAXimum - 200 V
 - DEFault - 20 V
 - UP - increases the current value by 5 V
 - DOWN - decreases the current value by 5 V
@@ -299,36 +339,6 @@ This property sets or gets number of periods in transmitter burst.
 < 5
 ```
 
-## Transmitter burst period
-
-**Description:**
-This property sets or gets the period in seconds for a pulse burst sent to a transmitting transducer.
-
-**Syntax:**
-```
-[SOURce:]TRANsmitter:PERiod <time|char>
-[SOURce:]TRANsmitter:PERiod?
-```
-
-**Parameters:**
-<char> = {MINimum | MAXimum | DEFault | UP | DOWN}
-<time> = {10 to 250 NS}
-- MINimum - 10 NS
-- MAXimum - 250 NS
-- DEFault - 140 NS
-- UP - increases the current value by 10 NS
-- DOWN - decreases the current value by 10 NS
-
-**Query Response:**
-<time> in seconds
-
-**Example:**
-```
-> TRAN:PER 200 NS
-> TRAN:PER?
-< 200E-9
-```
-
 ## Acquisition triggering mode
 
 **Description:**
@@ -336,22 +346,54 @@ This property is used to choose which event initiates an acquisition.
 
 **Syntax:**
 ```
-[SOURce:]TRIGgering:MODe <char>
-[SOURce:]TRIGgering:MODe?
+[SOURce:]TRIGgering:MODE <char>
+[SOURce:]TRIGgering:MODE?
 ```
 
 **Parameters:**
-<char> = {INTernal}
+<char> = {INTernal | CTP | ENCoder | TTL}
 - INTernal – Periodic mode with internal triggering: One acquisition will be performed every Triggering Interval seconds.
+- CTP - CTP trigger input.
+- ENCoder - Encoder trigger input (SENSOR in the REST/internal protocol).
+- TTL - External TTL trigger input.
 
 **Query Response:**
-{INTernal}
+{INTernal | CTP | ENCoder | TTL}
 
 **Example:**
 ```
 > TRIG:MODE INT
 > TRIG:MODE?
-< INT
+< INTernal
+```
+
+## Trigger delay
+
+**Description:**
+Sets or gets the delay between a trigger and the start of acquisition. Hardware uses 10 ns ticks. Unlike averaging delay queries, this query returns an integer in nanoseconds.
+
+**Syntax:**
+```
+[SOURce:]TRIGgering:DELay <time|char>
+[SOURce:]TRIGgering:DELay?
+```
+
+**Parameters:**
+<time> = {0 to 2147483647} NS
+<char> = {MINimum | MAXimum | DEFault | UP | DOWN}
+- MINimum - 0 NS
+- MAXimum - 2147483647 NS
+- DEFault - 15000 NS
+- UP/DOWN - changes the value by 1 NS
+
+**Query Response:**
+<numeric> in nanoseconds
+
+**Example:**
+```
+> TRIG:DEL 15 US
+> TRIG:DEL?
+< 15000
 ```
 
 ## Periodic acquisition interval
@@ -366,14 +408,14 @@ This property sets or gets time in seconds between two consecutive acquisition i
 ```
 
 **Parameters:**
-<time> = {100 US to 10 s}
+<time> = {10 to 2147483647} US
 <char> = {MINimum | MAXimum | DEFault | UP | DOWN}
 
-- MINimum - 100 US
-- MAXimum - 10 S
-- DEFault - 10 MS
-- UP - increases the current value by 100 US
-- DOWN - decreases the current value by 100 US
+- MINimum - 10 US
+- MAXimum - 2147483647 US
+- DEFault - 1000 US
+- UP - increases the current value by 1 US
+- DOWN - decreases the current value by 1 US
 
 **Query Response:**
 <time> in seconds
@@ -392,7 +434,7 @@ Method will start a single acquisition or a sequence of acquisitions
 
 **Syntax:**
 ```
-[SOURce]:STARt <char>
+[SOURce:]STARt <char>
 ```
 
 **Parameters:**
@@ -480,6 +522,57 @@ This property sets or gets analog amplification in decibels
 < 10
 ```
 
+## Combined preamplifier
+
+**Description:**
+Enables or disables the +20 dB preamplifier for the combined (single-crystal) signal path. GAIN? reports programmable gain without the additional preamplifier gain. Changing transmitter type can switch the active preamplifier path.
+
+**Syntax:**
+```
+[SOURce:]GAIN:PREamp:COMBined <char>
+[SOURce:]GAIN:PREamp:COMBined?
+```
+
+**Parameters:**
+<char> = {OFF | ON | 0 | 1}
+- DEFault - OFF
+
+**Query Response:**
+{0 | 1}
+
+**Example:**
+```
+> GAIN:PRE:COMB ON
+> GAIN:PRE:COMB?
+< 1
+```
+
+## Split preamplifier
+
+**Description:**
+Enables or disables the +20 dB preamplifier for the split (dual-crystal) signal path. GAIN? reports programmable gain without the additional preamplifier gain. Changing transmitter type can switch the active preamplifier path.
+
+**Syntax:**
+```
+[SOURce:]GAIN:PREamp:SPLIT <char>
+[SOURce:]GAIN:PREamp:SPLIT?
+```
+
+**Parameters:**
+<char> = {OFF | ON | 0 | 1}
+- DEFault - OFF
+- SPLIT requires the full five-letter command header.
+
+**Query Response:**
+{0 | 1}
+
+**Example:**
+```
+> GAIN:PRE:SPLIT ON
+> GAIN:PRE:SPLIT?
+< 1
+```
+
 ## Transmitter damping
 
 **Description:**
@@ -487,8 +580,8 @@ This property enables or disables the pulse damping
 
 **Syntax:**
 ```
-[SOURce]:TRANsmitter:DAMP[:ENABle] <char>
-[SOURce]:TRANsmitter:DAMP[:ENABle]?
+[SOURce:]TRANsmitter:DAMP[:ENABle] <char>
+[SOURce:]TRANsmitter:DAMP[:ENABle]?
 ```
 
 **Parameters:**
@@ -504,7 +597,65 @@ This property enables or disables the pulse damping
 ```
 > TRAN:DAMP ON
 > TRAN:DAMP?
-< 0
+< 1
+```
+
+## Transmitter pulse gap
+
+**Description:**
+Sets or gets the pulser gap. Hardware uses 5 ns resolution; the query returns an integer in nanoseconds.
+
+**Syntax:**
+```
+[SOURce:]TRANsmitter:GAP <time|char>
+[SOURce:]TRANsmitter:GAP?
+```
+
+**Parameters:**
+<time> = {0 to 500} NS
+<char> = {MINimum | MAXimum | DEFault | UP | DOWN}
+- MINimum - 0 NS
+- MAXimum - 500 NS
+- DEFault - 5 NS
+- UP/DOWN - changes the value by 5 NS
+
+**Query Response:**
+<numeric> in nanoseconds
+
+**Example:**
+```
+> TRAN:GAP 5 NS
+> TRAN:GAP?
+< 5
+```
+
+## Transmitter damping gap
+
+**Description:**
+Sets or gets the damping gap, independently of damping enable. Hardware uses 5 ns resolution. Setting the gap requires super-pulser hardware support; enable damping separately with TRAN:DAMP ON.
+
+**Syntax:**
+```
+[SOURce:]TRANsmitter:DAMP:GAP <time|char>
+[SOURce:]TRANsmitter:DAMP:GAP?
+```
+
+**Parameters:**
+<time> = {10 to 500} NS
+<char> = {MINimum | MAXimum | DEFault | UP | DOWN}
+- MINimum - 10 NS
+- MAXimum - 500 NS
+- DEFault - 10 NS
+- UP/DOWN - changes the value by 5 NS
+
+**Query Response:**
+<numeric> in nanoseconds
+
+**Example:**
+```
+> TRAN:DAMP:GAP 100 NS
+> TRAN:DAMP:GAP?
+< 100
 ```
 
 ## Input impedance
@@ -514,8 +665,8 @@ This property sets/gets the input impedance in Ohms
 
 **Syntax:**
 ```
-[SOURce]:TRANsmitter:IMPedance <char>
-[SOURce]:TRANsmitter:IMPedance?
+[SOURce:]TRANsmitter:IMPedance <char>
+[SOURce:]TRANsmitter:IMPedance?
 ```
 
 **Parameters:**
@@ -542,8 +693,8 @@ This property sets/gets if and how TGC (Time Gain Compensation) will be applied 
 
 **Syntax:**
 ```
-[:SOURce]:GAIN:TGC:MODE <char>
-[:SOURce]:GAIN:TGC:MODE?
+[SOURce:]GAIN:TGC:MODE <char>
+[SOURce:]GAIN:TGC:MODE?
 ```
 
 **Parameters:**
@@ -570,14 +721,16 @@ This property sets/gets parameters of TGC defined by linear function  (see TGC M
 
 **Syntax:**
 ```
-[:SOURce]:GAIN:TGC:LINear <float array>
-[:SOURce]:GAIN:TGC:LINear?
+[SOURce:]GAIN:TGC:LINear <float array>
+[SOURce:]GAIN:TGC:LINear?
 ```
 
 **Parameters:**
 <float array> - list of 2 values separated by comma:
 - offset (in µs),
 - slope (dB/µs)
+
+Offset must be nonnegative. The firmware stores it as an integer in microseconds, truncating fractional offsets. Writing coefficients does not select LINear mode; set TGC Mode separately.
 
 Time Gain Compensation (TGC) consists of two segments:
 - Constant Gain Segment: From 0 to offset microseconds (µs), the gain remains constant at a level defined via Constant gain at input .
@@ -602,21 +755,22 @@ This property sets/gets parameters of TGC configured by multiple gain levels at 
 
 **Syntax:**
 ```
-[:SOURce]:GAIN:TGC:ARBitrary <float array>
-[:SOURce]:GAIN:TGC:ARBitrary?
+[SOURce:]GAIN:TGC:ARBitrary <float array>
+[SOURce:]GAIN:TGC:ARBitrary?
 ```
 
 **Parameters:**
 <float array> – A comma-separated list of 2×N float values, where each pair of consecutive values represents a point on a TGC (Time Gain Compensation) curve. Each pair consists of:
 - Time (in microseconds)
 - Gain (in dB)
-The format is: time1, gain1, time2, gain2, ..., gainN, timeN
+The format is: time1, gain1, time2, gain2, ..., timeN, gainN
+The firmware accepts at most 128 points, sorts them by time and removes duplicate times. Writing points does not select ARBitrary mode; set TGC Mode separately.
 The gain values will be added to a constant gain defined via Constant gain at input.
 E.g. user has set constant gain to 40dB and sets a TGC array
 10,5,20,10
 The effective gain will be applied as:
 - from 0µs to 10µs the device will use constant gain 40dB
-- from 10µs to 20µs the device will linearly increase gain from 45dB to 50dB (40+5dB to 40+10dB)
+- from 10µs to 20µs the device will hold gain at 45dB (40+5dB); this firmware uses steps, not linear interpolation
 - from 20µs to the rest of the TGC range the device will use a gain 50dB
 
 **Query Response:**
@@ -651,16 +805,19 @@ MEMory:CLEar
 ## Acquisitions per averaged vector
 
 **Description:**
-<%INSTR%> can perform several pulses/acquisitions in a row and internally calculate an averaged vector from the results, when Acquisitions per averaged vector > 0.
+A1580 can perform several pulses/acquisitions in a row and internally calculate an averaged vector from the results. This setting is an exponent N: each vector averages 2^N acquisitions. Zero disables averaging (one acquisition); eight averages 256 acquisitions.
 
 **Syntax:**
 ```
-SENSe:AVERage:COUNt <numeric>
-SENSe:AVERage:COUNt?
+[SENSe:]AVERage[:COUNt] <numeric|char>
+[SENSe:]AVERage[:COUNt]?
 ```
 
 **Parameters:**
 <numeric> = {0 ... 8}
+<char> = {MINimum | MAXimum | DEFault | UP | DOWN}
+- DEFault - 0
+- UP/DOWN - changes the exponent by 1
 
 **Query Response:**
 <numeric>
@@ -672,16 +829,45 @@ SENSe:AVERage:COUNt?
 < 5
 ```
 
+## Automatic constant averaging delay
+
+**Description:**
+Enables automatic calculation of the constant averaging delay for internal triggering. The firmware calculates the delay in nanoseconds as trigger_interval_us * 1000 / 2^N - random_delay_ns - 100000 + 31250, limited to 0..2147483647, where N is the averaging exponent. Changes to trigger interval, averaging exponent or random delay recalculate it.
+Enabling AUTO for a non-internal trigger source is rejected by the internal protocol. Changing the source away from internal disables AUTO. Setting AUTO OFF resets the manual delay to 10000 NS; it does not retain the calculated value.
+
+Automatic selection chooses the constant averaging delay for the user using an experience-based timing calculation that covers many common inspection cases. Its purpose is to reduce ghost signals caused by repeated ultrasonic reflections from previous shots appearing in subsequent acquisitions.
+
+**Syntax:**
+```
+[SENSe:]AVERage:DELay:CONStant:AUTO <char>
+[SENSe:]AVERage:DELay:CONStant:AUTO?
+```
+
+**Parameters:**
+<char> = {OFF | ON | 0 | 1}
+
+**Query Response:**
+{0 | 1}
+
+**Example:**
+```
+> SENS:AVER:DEL:CONS:AUTO ON
+> SENS:AVER:DEL:CONS:AUTO?
+< 1
+```
+
 ## Constant averaging interval
 
 **Description:**
 This property is defined in seconds and gets or sets a constant part of an interval between acquisitions in averaging mode.
-When A1570 performs several pulses/acquisitions in a row for the following averaging, a pause will take place after an acquisition is finished. It is calculated as FixedDelay + Constant averaging interval + RandomInterval, where FixedDelay is a hardware delay of 22μs and  RandomInterval is a random number in a range from 0 to Random averaging interval.
+In A1580 averaging mode, this is the constant delay within the acquisition sequence. Hardware uses 10 ns ticks. Manual writes are rejected while automatic constant delay is enabled; disable Automatic constant averaging delay before setting a manual value.
+
+This delay helps eliminate ghost signals: an ultrasonic wave can reflect repeatedly within the specimen, allowing echoes from a previous shot to appear in the next acquisition. Select averaging delays according to specimen thickness, pulse repetition rate (PRR), and acquired vector length.
 
 **Syntax:**
 ```
-[SENSe:]AVERage:PERiod<time|char>
-[SENSe:]AVERage:PERiod?
+[SENSe:]AVERage:DELay:CONStant[:VALue] <time|char>
+[SENSe:]AVERage:DELay:CONStant[:VALue]?
 ```
 
 **Parameters:**
@@ -699,8 +885,9 @@ When A1570 performs several pulses/acquisitions in a row for the following avera
 
 **Example:**
 ```
-> SENSe:AVERage:PERiod 50 US
-> SENSe:AVERage:PERiod?
+> SENS:AVER:DEL:CONS:AUTO OFF
+> SENSe:AVERage:DELay:CONStant 50 US
+> SENSe:AVERage:DELay:CONStant?
 < 50.0E-6
 ```
 
@@ -708,12 +895,14 @@ When A1570 performs several pulses/acquisitions in a row for the following avera
 
 **Description:**
 This property is defined in seconds and gets or sets a random part of an interval between acquisitions in averaging mode.
-When A1570 performs several pulses/acquisitions in a row for the following averaging a pause will take place after an acquisition is finished. It is calculated as FixedDelay + Constant averaging interval + RandomInterval, where FixedDelay is a hardware delay of 22μs and  RandomInterval is a random number in a range from 0 to Random averaging interval.
+In A1580 averaging mode, this sets the random-delay range within the acquisition sequence. Hardware uses 10 ns ticks. Changing this value recalculates the constant delay when automatic constant delay is enabled.
+
+Varying the delay between shots helps reduce ghost signals from repeated reflections of previous shots when averaging acquisitions. Select this range together with the constant delay according to specimen thickness, pulse repetition rate (PRR), and acquired vector length.
 
 **Syntax:**
 ```
-[SENSe:]AVERage:PERiod:RANDom <time|char>
-[SENSe:]AVERage:PERiod:RANDom?
+[SENSe:]AVERage:DELay:RANDom <time|char>
+[SENSe:]AVERage:DELay:RANDom?
 ```
 
 **Parameters:**
@@ -731,20 +920,20 @@ When A1570 performs several pulses/acquisitions in a row for the following avera
 
 **Example:**
 ```
-> SENSe:AVER:PER:RAND 2 US
-> SENSe:AVER:PER:RAND?
+> SENSe:AVER:DEL:RAND 2 US
+> SENSe:AVER:DEL:RAND?
 < 2.0E-6
 ```
 
 ## Analog high-pass filter index
 
 **Description:**
-This property selects an analog filter at the input of %INSTR%.The command takes an index as a parameter. The table below sets correspondance between the index value and the filter frequency
+This property selects an analog filter at the input of A1580. The command takes an index as a parameter. The table below shows the firmware's default mapping between index and filter frequency.
 
 **Syntax:**
 ```
-[:SENSe]:FILTer:HPASs:INDex <char>
-[:SENSe]:FILTer:HPASs:INDex
+[SENSe:]FILTer:HPASs:INDex <char>
+[SENSe:]FILTer:HPASs:INDex?
 ```
 
 **Parameters:**
@@ -763,7 +952,84 @@ This property selects an analog filter at the input of %INSTR%.The command takes
 **Example:**
 ```
 > SENS:FILT:HPASs:INDex 1
-> SENS:FILT:HPASs:INDex
+> SENS:FILT:HPASs:INDex?
 < 1
+```
+
+# IEEE common commands
+
+## Status registers and clear status
+
+**Description:**
+Controls and reads the SCPI library's status registers and error queue.
+
+**Syntax:**
+```
+*CLS
+*ESE <numeric>
+*ESE?
+*ESR?
+*SRE <numeric>
+*SRE?
+*STB?
+```
+
+**Parameters:**
+<numeric> = {0 to 255} - status-register bit mask for *ESE and *SRE
+
+**Query Response:**
+- *ESE? - standard event status enable mask.
+- *ESR? - standard event status register; reading clears it.
+- *SRE? - service request enable mask.
+- *STB? - status byte.
+- *CLS clears status and the error queue; it has no query response.
+
+**Example:**
+```
+> *CLS
+> *ESE 1
+> *ESE?
+< 1
+```
+
+## Operation complete and wait
+
+**Description:**
+Provides the SCPI library's operation-complete and wait commands. They do not verify that asynchronous A1580 acquisition or DMA has finished.
+
+**Syntax:**
+```
+*OPC
+*OPC?
+*WAI
+```
+
+**Query Response:**
+*OPC? returns 1. *OPC sets the operation-complete event; *WAI has no query response.
+
+**Example:**
+```
+> *OPC?
+< 1
+```
+
+## Reset and self-test
+
+**Description:**
+These commands are registered in the firmware, but *RST only logs a reset request and does not restore device settings. *TST? is a stub that returns zero.
+
+**Syntax:**
+```
+*RST
+*TST?
+```
+
+**Query Response:**
+*TST? returns 0. *RST has no query response.
+
+**Example:**
+```
+> *TST?
+< 0
 ```
 
