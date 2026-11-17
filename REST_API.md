@@ -44,7 +44,7 @@ This format applies to `/api/v1/*` endpoints. `/config/*` endpoints use object p
   "status": "error",
   "message": "<human-readable error message>",
   "details": {
-    "code": <error_code>,
+    "code": -1,
     "field": "<parameter_name>",
     "expected": "<expected_value_or_range>",
     "received": "<actual_value_received>"
@@ -115,6 +115,41 @@ Invoke-RestMethod -Method Post -Uri "http://192.168.200.18/config/user-data" -Co
   "status": "success"
 }
 ```
+
+## Hardware plate revisions (read-only)
+
+`GET /api/v1/hardware_info` returns all four provisioned plate revisions in one
+JSON document. In the complete Python example, call `get_parameter("hardware_info")`
+to obtain the `data.plates` dictionary alongside the scalar getters.
+
+```bash
+curl --fail-with-body "http://192.168.200.18/api/v1/hardware_info"
+```
+
+```powershell
+Invoke-RestMethod -Uri "http://192.168.200.18/api/v1/hardware_info"
+```
+
+```json
+{"status":"success","data":{"plates":{"sys":"1.0","con":"1.0","ana":"1.0","pep_tr":"1.0"}}}
+```
+
+The keys `sys`, `con`, `ana`, and `pep_tr` are always present. A missing,
+malformed, duplicate, or oversized entry is `null` for that plate. Versions are
+strings, preserving major/minor components (for example `"1.10"`). These are the
+revisions provisioned in `/run/media/mmcblk0p1/DEV_INFO.TXT`, not live detection
+of fitted hardware. The main firmware caches the document at startup; restart
+that service after changing the provisioning file.
+
+If the file cannot be read at startup, HTTP 503 returns:
+
+```json
+{"status":"error","message":"hardware information unavailable"}
+```
+
+POST, PUT, and DELETE return HTTP 405; this endpoint has no setter. An empty
+readable file returns success with all four revisions `null`. The SCPI query
+`SYST:HARD:INFO?` carries the same document in a definite-length block.
 
 ## Available Parameters
 

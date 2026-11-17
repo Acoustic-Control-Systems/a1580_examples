@@ -1,4 +1,5 @@
 import socket
+import json
 import logging
 
 def check_error_queue_and_assert(inst):
@@ -19,6 +20,16 @@ def parse_error(error_msg: str):
     num = int(msg_spl[0])
     msg = msg_spl[1] if len(msg_spl) == 2 else ''
     return num, msg
+
+def get_hardware_info(inst):
+    """Read one IEEE block and decode its complete JSON document."""
+    payload = inst.query_binary_values(
+        'SYST:HARD:INFO?', datatype='B', container=bytes)
+    document = json.loads(payload.decode('utf-8'))
+    if document.get('status') != 'success':
+        raise RuntimeError(document.get('message', 'Hardware information unavailable'))
+    return document['data']['plates']
+
 
 def read_binary_data(host, port, stop_event, raw_data, length_bytes):
     logger = logging.getLogger(__name__)

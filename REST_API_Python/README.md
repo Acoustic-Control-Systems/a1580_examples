@@ -81,6 +81,21 @@ client.disconnect()
 - **POST**: Set parameter values on device
 - Used for configuration and control
 
+Use `get_parameter()` to read device information and acquisition settings:
+
+```python
+serial_number = get_parameter("serial_number")
+firmware_version = get_parameter("firmware_version")
+protocol_version = get_parameter("protocol_version")
+sampling_freq = get_parameter("sampling_freq")
+plates = get_parameter("hardware_info")
+```
+
+Scalar parameters return their values. `hardware_info` returns a dictionary with
+`sys`, `con`, `ana`, and `pep_tr` revisions; an unknown revision is `None`.
+Failed requests return `None`. Use `set_parameter(name, value)` to change writable
+parameters. See [the REST reference](../REST_API.md) for response formats and errors.
+
 ### WebSocket
 - **Real-time streaming**: Continuous A-scan data packets
 - **Binary protocol**: Header (28 bytes) + Int16 sample data

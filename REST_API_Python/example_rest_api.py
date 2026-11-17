@@ -78,39 +78,41 @@ WEBSOCKET_URL = f"ws://{DEVICE_IP}:{WEBSOCKET_PORT}"
 def get_parameter(parameter_name):
     """
     Read a parameter value from the device.
-    
+
     This function sends a GET request to read a parameter's current value.
     Think of it like asking the device "What is your current setting for X?"
     
     Parameters:
         parameter_name (str): The name of the parameter to read
-                             (e.g., "sampling_freq", "serial_number")
-    
+                             (e.g., "sampling_freq", "serial_number",
+                             or "hardware_info")
+
     Returns:
         The parameter value if successful, None if there was an error
-    
-    Example:
-        serial = get_parameter("serial_number")
-        print(f"Device serial number: {serial}")
+
+    Examples:
+        serial = get_parameter("serial_number")  # Uses /config/dev.sn
+        plates = get_parameter("hardware_info")  # Mapping of all plate revisions
     """
-    
+
     # Construct the full URL by adding the parameter name to the base URL
-    url = BASE_URL + parameter_name
-    
+    url = CONFIG_BASE_URL + "dev.sn" if parameter_name == "serial_number" else BASE_URL + parameter_name
+
     try:
         # Send the GET request to the device
         # timeout=5 means wait up to 5 seconds for a response
         response = requests.get(url, timeout=5)
-        
+
         # Check if the request was successful (status code 200 = OK)
         if response.status_code == 200:
             # Parse the JSON response into a Python dictionary
             data = response.json()
-            
+
             # Check if the device reported success
             if data.get("status") == "success":
-                # Extract and return the parameter value
-                parameter_value = data["data"][parameter_name]
+                # hardware_info is a grouped result; scalar parameters use their own key
+                result_key = "plates" if parameter_name == "hardware_info" else parameter_name
+                parameter_value = data["data"][result_key]
                 print(f"Successfully read {parameter_name}: {parameter_value}")
                 return parameter_value
             else:
@@ -119,25 +121,25 @@ def get_parameter(parameter_name):
                 print(f"  Error message: {data.get('message', 'Unknown error')}")
                 return None
         else:
-            # HTTP request failed (e.g., 404 Not Found, 400 Bad Request)
+            # HTTP request failed (e.g., 404 Not Found, 503 Service Unavailable)
             print(f"HTTP error reading {parameter_name}")
             print(f"  Status code: {response.status_code}")
             print(f"  Response: {response.text}")
             return None
-            
+
     except requests.exceptions.Timeout:
         # The request took too long - device might be offline or unreachable
         print(f"Timeout while reading {parameter_name}")
         print(f"  Device did not respond within 5 seconds")
         return None
-        
+
     except requests.exceptions.ConnectionError:
         # Could not connect to the device - check IP, port, and network
         print(f"Connection error while reading {parameter_name}")
         print(f"  Could not connect to {DEVICE_IP}:{REST_PORT}")
         print(f"  Check device IP, port, and network connection")
         return None
-        
+
     except Exception as e:
         # Catch any other unexpected errors
         print(f"Unexpected error reading {parameter_name}: {str(e)}")
@@ -610,6 +612,9 @@ def main():
     serial_number = get_parameter("serial_number")
     time.sleep(0.2)  # Short delay between requests
     
+    plate_revisions = get_parameter("hardware_info")
+    print("Plate revisions:", plate_revisions)
+
     # Read firmware version
     firmware_version = get_parameter("firmware_version")
     time.sleep(0.2)
@@ -857,7 +862,7 @@ def main():
 
 def get_all_system_info():
     """
-    Convenience function to read all system information at once.
+    Convenience function to collect system information using several requests.
     
     Returns a dictionary with all system information parameters.
     Useful for logging or displaying complete device status.
@@ -871,7 +876,8 @@ def get_all_system_info():
         "device_type",
         "serial_number",
         "protocol_version",
-        "firmware_version"
+        "firmware_version",
+        "hardware_info"
     ]
     
     print("\nReading all system information...")

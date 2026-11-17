@@ -195,6 +195,7 @@ while True:
 #get id string from the device
 idn: str = inst.query('*IDN?')
 logger.info(idn)
+logger.info('Plate revisions: %s', get_hardware_info(inst))
 
 
 #stop any previously started measurements

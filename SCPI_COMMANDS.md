@@ -43,6 +43,47 @@ The following common commands are registered by the SCPI implementation:
 
 # SYSTem Subsystem
 
+## Hardware plate revisions
+
+**Query:** `SYSTem:HARDware:INFO?` (short form `SYST:HARD:INFO?`). No parameters
+or setter are supported.
+
+Returns all plate revisions as one UTF-8 JSON document in an IEEE definite-length
+block: `#<number-of-length-digits><decimal-byte-count><JSON>`, followed by CRLF.
+For the exact compact payload below, the byte count is 91 and the prefix is
+`#291`. The CRLF terminator is not included in the byte count.
+
+```text
+> SYST:HARD:INFO?
+< #291{"status":"success","data":{"plates":{"sys":"1.0","con":"1.0","ana":"1.0","pep_tr":"1.0"}}}
+```
+
+Use a binary-block reader, not a plain scalar `query()` followed by `json.loads`:
+
+```python
+import json
+payload = instrument.query_binary_values(
+    "SYST:HARD:INFO?", datatype="B", container=bytes)
+document = json.loads(payload.decode("utf-8"))
+if document["status"] != "success":
+    raise RuntimeError(document["message"])
+plates = document["data"]["plates"]
+```
+
+Configure the PyVISA socket with `read_termination = "\r\n"` and
+`write_termination = "\r\n"`; the block reader consumes the trailing CRLF so
+that the next query starts at its own response. Each version is a string; an
+unknown, malformed, duplicate, or oversized plate entry is `null`. The document
+is cached from `DEV_INFO.TXT` when the main firmware starts, so it describes
+provisioned revisions rather than live hardware detection. If the file is
+unreadable, the block contains
+`{"status":"error","message":"hardware information unavailable"}`. Use the
+block's length instead of assuming every response starts with `#291`.
+
+`*IDN?` continues to report firmware identity, and `SYST:VERS?` continues to
+report the SCPI standard revision.
+
+
 ## Error message queue number
 
 **Description:**
