@@ -233,7 +233,7 @@ Invoke-RestMethod -Method Get -Uri "http://192.168.200.18:8080/api/v1/system.hos
 
 ### Successful POST Request
 ```bash
-# Set sampling frequency to 12 MHz
+# Set sampling frequency to 100 MHz
 curl -X POST \
   -H "Content-Type: application/json" \
   -d '{"value": "100"}' \

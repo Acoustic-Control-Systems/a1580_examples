@@ -173,10 +173,14 @@ class AScanWebSocketClient:
                 # Each message may contain one or more complete packets
                 data = self.ws.recv()
                 
+                if not data:
+                    break
                 if data:
                     self.bytes_received += len(data)
                     self._process_incoming_data(data)
                     
+            except websocket.WebSocketTimeoutException:
+                continue
             except websocket.WebSocketConnectionClosedException:
                 print("WebSocket connection closed by server")
                 self.running = False
@@ -188,6 +192,9 @@ class AScanWebSocketClient:
                     self.parse_errors += 1
                 break
     
+        # is_connected() must reflect receiver exit, including fatal errors and EOF.
+        self.running = False
+
     def _process_incoming_data(self, data_block):
         """
         Process incoming binary data and extract complete packets.

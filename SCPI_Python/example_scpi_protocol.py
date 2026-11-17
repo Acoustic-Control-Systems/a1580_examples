@@ -131,7 +131,7 @@ def set_tgc_linear_mode(inst: Resource, offset: float, slope: float):
     assert len(parts) == 2, 'Wrong getting linear tgc answer'
     triple = tuple(map(float, parts))
 
-    assert (offset, slope) == triple, f'An error in tgc setter/getter Sent {(offset, slope)}. Revceived: {triple}'
+    assert all(abs(a - b) <= 1e-6 * max(1, abs(a)) for a, b in zip((offset, slope), triple)), f'An error in tgc setter/getter Sent {(offset, slope)}. Revceived: {triple}'
     
     # set tgc mode to linear
     inst.write(f'SOURce:GAIN:TGC:MODE LINear')
@@ -141,6 +141,8 @@ def set_tgc_linear_mode(inst: Resource, offset: float, slope: float):
 
 def set_tgc_arbitrary_mode(inst: Resource, time_points: list, gain_points: list):
     # from lists to string time,gain,time,gain,...
+    if len(time_points) != len(gain_points):
+        raise ValueError('TGC time and gain lists must have equal lengths')
     params = ",".join(f"{x},{y}" for x, y in zip(time_points, gain_points))
 
     # configure arbitrary tgc curve
@@ -168,97 +170,118 @@ def unpack_and_plot_data(data):
 
 
 
-logger = logging.getLogger()
-logger.level = logging.INFO
-
-stream_handler = logging.StreamHandler(sys.stdout)
-logger.addHandler(stream_handler)
-logger.info('Start SCPI communication on A1580...')
-
-ip: str = '192.168.200.18'
-cmd_port: int = 5025    #scpi command port
-data_port: int = 2758   #data port
-
-rm = visa.ResourceManager()
-inst = rm.open_resource(f'tcpip::{ip}::{str(cmd_port)}::SOCKET')
-inst.encoding = 'iso-8859-1'
-inst.timeout = 5000 # miliseconds
-inst.read_termination = '\r\n'
-inst.write_termination = '\r\n'
-
-#readout error queue before start
-while True:
-    err_num, err_msg = read_error_queue(inst)
-    if (err_num == 0):
-        break
-
-#get id string from the device
-idn: str = inst.query('*IDN?')
-logger.info(idn)
-logger.info('Plate revisions: %s', get_hardware_info(inst))
+logger = logging.getLogger(__name__)
 
 
-#stop any previously started measurements
-inst.write('STOP')
+def main():
+    global logger
+    logger = logging.getLogger()
+    logger.level = logging.INFO
 
-#clear device memory
-inst.write('MEM:CLEar')
+    stream_handler = logging.StreamHandler(sys.stdout)
+    logger.addHandler(stream_handler)
+    logger.info('Start SCPI communication on A1580...')
 
-#vector length in samples to be measured
-data_length = 8*1024
+    ip: str = '192.168.200.18'
+    cmd_port: int = 5025    #scpi command port
+    data_port: int = 2758   #data port
 
-#program device
-set_parameters(inst, data_length)
+    rm = visa.ResourceManager()
+    inst = rm.open_resource(f'tcpip::{ip}::{str(cmd_port)}::SOCKET')
+    inst.encoding = 'iso-8859-1'
+    inst.timeout = 5000 # miliseconds
+    inst.read_termination = '\r\n'
+    inst.write_termination = '\r\n'
 
-do_use_linear_tgc = False # True to use linear tgc
-# set tgc mode to linear with 10us offset and 0.22 dB/us slope
-if do_use_linear_tgc:
-    set_tgc_linear_mode(inst, 10, 0.22)
-    
-do_use_arbitrary_tgc = False # True to use arbitrary tgc
-# set tgc mode to arbitrary with given points
-if do_use_arbitrary_tgc:
-    time_points = [0, 2, 5, 10, 30]
-    dbs = [5, 20, 20, 40, 10]
-    set_tgc_arbitrary_mode(inst, time_points, dbs)
+    try:
+        #readout error queue before start
+        while True:
+            err_num, err_msg = read_error_queue(inst)
+            if (err_num == 0):
+                break
 
-#check data length
-length: str = inst.query('DATA:LENG?')
-logger.info(length)
+        #get id string from the device
+        idn: str = inst.query('*IDN?')
+        logger.info(idn)
+        logger.info('Plate revisions: %s', get_hardware_info(inst))
 
-#get data port number
-data_port_str: str = inst.query('DATA:PORT?')
-data_port = int(data_port_str)
 
-ascan_header_size = 28  #ascan header size in bytes
-length_bytes = data_length*2 +ascan_header_size #vector length in bytes
+        #stop any previously started measurements
+        inst.write('STOP')
 
-#measure single ascans in cycle
-stop_event = threading.Event()
-data = {}
+        #clear device memory
+        inst.write('MEM:CLEar')
 
-duration_in_seconds = 5
-#measure and read data in auto mode
-data = {}
-stop_event.clear()
+        #vector length in samples to be measured
+        data_length = 8*1024
 
-data_thread = threading.Thread(target=read_binary_data, args=(ip, data_port, stop_event, data, length_bytes))
-data_thread.start()
+        #program device
+        set_parameters(inst, data_length)
 
-inst.write(f'STAR AUTO')
-start_time = time.time()
-while time.time() - start_time < duration_in_seconds:
-    time.sleep(0.1)
+        do_use_linear_tgc = False # True to use linear tgc
+        # set tgc mode to linear with 10us offset and 0.22 dB/us slope
+        if do_use_linear_tgc:
+            set_tgc_linear_mode(inst, 10, 0.22)
 
-stop_event.set()
-data_thread.join()   #wait for thread to finish
-inst.write(f'STOP')
+        do_use_arbitrary_tgc = False # True to use arbitrary tgc
+        # set tgc mode to arbitrary with given points
+        if do_use_arbitrary_tgc:
+            time_points = [0, 2, 5, 10, 30]
+            dbs = [5, 20, 20, 40, 10]
+            set_tgc_arbitrary_mode(inst, time_points, dbs)
 
-unpack_and_plot_data(data)
+        #check data length
+        length: str = inst.query('DATA:LENG?')
+        logger.info(length)
 
-plt.show()  # Show all plots
+        #get data port number
+        data_port_str: str = inst.query('DATA:PORT?')
+        data_port = int(data_port_str)
 
-#close session
-inst.close()
-rm.close()
+        ascan_header_size = 28  #ascan header size in bytes
+        length_bytes = data_length*2 +ascan_header_size #vector length in bytes
 
+        #measure single ascans in cycle
+        stop_event = threading.Event()
+        data = {}
+
+        duration_in_seconds = 5
+        #measure and read data in auto mode
+        data = {}
+        stop_event.clear()
+
+        ready_event = threading.Event()
+        data_thread = threading.Thread(target=read_binary_data, args=(ip, data_port, stop_event, data, length_bytes, ready_event))
+        data_thread.start()
+        if not ready_event.wait(timeout=5):
+            raise RuntimeError('Data connection did not become ready')
+
+        inst.write(f'STAR AUTO')
+        start_time = time.time()
+        while time.time() - start_time < duration_in_seconds:
+            time.sleep(0.1)
+
+        inst.write('STOP')
+        stop_event.set()
+        data_thread.join(timeout=3)
+
+        unpack_and_plot_data(data)
+
+        plt.show()  # Show all plots
+
+    finally:
+        if 'stop_event' in locals():
+            stop_event.set()
+        try:
+            inst.write('STOP')
+        finally:
+            if 'data_thread' in locals() and data_thread.is_alive():
+                data_thread.join(timeout=3)
+            try:
+                inst.close()
+            finally:
+                rm.close()
+
+
+if __name__ == '__main__':
+    main()

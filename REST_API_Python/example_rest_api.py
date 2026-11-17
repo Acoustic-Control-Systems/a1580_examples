@@ -228,6 +228,24 @@ def set_parameter(parameter_name, value):
         return False
 
 
+def run_auto_acquisition(client, collect):
+    """Stop a stale run, connect, start, and always stop before disconnecting."""
+    if not set_parameter("stop_auto_ascan", 1):
+        return False
+    if not client.connect():
+        return False
+    try:
+        if not set_parameter("start_auto_ascan", 1):
+            return False
+        collect()
+        return True
+    finally:
+        try:
+            set_parameter("stop_auto_ascan", 1)
+        finally:
+            client.disconnect()
+
+
 def network_parameters_example():
     """
     Example: Read and write network parameters using /config.
@@ -360,22 +378,11 @@ def websocket_example_basic():
     # Step 4: Register the callback
     client.on_data(on_packet_received)
     
-    # Step 5: Connect and start receiving
-    if client.connect():
-        # Start automatic A-scan acquisition to ensure data is streaming
-        set_parameter("start_auto_ascan", 1)
-
-        print("Receiving data for 5 seconds...")
-        time.sleep(5)
-        
-        # Stop acquisition when done
-        set_parameter("start_auto_ascan", 0)
-        
-        # Step 6: Disconnect when done
-        client.disconnect()
+    # Stop a stale run before opening the stream; cleanup also runs on exceptions.
+    if run_auto_acquisition(client, lambda: time.sleep(5)):
         print(f"\n\nReceived {packet_count} packets total")
     else:
-        print("Failed to connect")
+        print("Could not start acquisition")
 
 
 def websocket_example_analysis():
@@ -437,7 +444,7 @@ def websocket_example_analysis():
                 first_crossing = i
                 break
         
-        tof = first_crossing * time_per_sample if first_crossing else None
+        tof = first_crossing * time_per_sample if first_crossing is not None else None
         
         # Store results
         result = {
@@ -452,28 +459,16 @@ def websocket_example_analysis():
         
         # Display only every 10th packet to avoid flooding console
         if len(analysis_results) % 10 == 0:
+            tof_text = f"{tof:.2f} us" if tof is not None else "No echo"
             print(f"\rAnalyzed {len(analysis_results)} packets | "
-                  f"Peak: {peak_amplitude} @ {peak_time:.2f}µs | "
-                  f"RMS: {rms:.1f} | "
-                  f"TOF: {tof:.2f}µs" if tof else "No echo",
-                  end='', flush=True)
+                  f"Peak: {peak_amplitude} @ {peak_time:.2f} us | "
+                  f"RMS: {rms:.1f} | TOF: {tof_text}", end='', flush=True)
+
     
     # Register callback and collect data
     client.on_data(analyze_ascan)
     
-    if client.connect():
-        
-        # Start automatic A-scan acquisition to ensure data is streaming
-        set_parameter("start_auto_ascan", 1)
-        
-        print("Analyzing data for 5 seconds...")
-        time.sleep(5)
-        
-        # Stop acquisition when done
-        set_parameter("start_auto_ascan", 0)
-        
-        client.disconnect()
-        
+    if run_auto_acquisition(client, lambda: time.sleep(5)):
         # Display summary statistics
         print(f"\n\nAnalysis Summary ({len(analysis_results)} packets):")
         if analysis_results:
@@ -528,19 +523,16 @@ def websocket_example_save_data():
     # Register callback
     client.on_data(save_waveform)
     
-    if client.connect():
-        # Start automatic A-scan acquisition to ensure data is streaming
-        set_parameter("start_auto_ascan", 1)
-        
-        # Wait until we have enough waveforms
-        while len(saved_waveforms) < max_waveforms and client.is_connected():
+    def collect_waveforms():
+        deadline = time.monotonic() + 10
+        while (len(saved_waveforms) < max_waveforms and client.is_connected()
+               and time.monotonic() < deadline):
             time.sleep(0.1)
-        
-        # Stop acquisition when done
-        set_parameter("start_auto_ascan", 0)
-        
-        client.disconnect()
-        
+
+    if run_auto_acquisition(client, collect_waveforms):
+        if not saved_waveforms:
+            print("No waveforms received before the capture deadline")
+            return
         # Save to CSV file
         filename = "ascan_data.csv"
         print(f"\n\nSaving {len(saved_waveforms)} waveforms to {filename}...")

@@ -139,6 +139,12 @@ See [common_functions.py](../SCPI_Python/common_functions.py) for example code t
    set_parameter("stop_auto_ascan", 1)
    ```
 
+Acquisition commands are actions: start with `set_parameter("start_auto_ascan", 1)`
+and stop with `set_parameter("stop_auto_ascan", 1)`. Writing zero to
+`start_auto_ascan` still starts acquisition. The full example stops a stale run
+before connecting and always attempts stop/disconnect during cleanup. Waveform
+capture has a ten-second deadline when insufficient data arrives.
+
 ## Examples Included
 
 The `example_rest_api.py` file contains complete working examples:

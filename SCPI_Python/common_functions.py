@@ -31,31 +31,41 @@ def get_hardware_info(inst):
     return document['data']['plates']
 
 
-def read_binary_data(host, port, stop_event, raw_data, length_bytes):
+def read_binary_data(host, port, stop_event, raw_data, length_bytes, ready_event=None):
+    """Reassemble complete A-scan frames across arbitrary TCP receive boundaries."""
     logger = logging.getLogger(__name__)
-    
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.connect((host, port))
-        logger.info(f"[DATA_READ] Connected to data port {port}")
-
-        s.settimeout(1.0)
-
-        counter = 0
-        while not stop_event.is_set():
-            try:
-                data = s.recv(length_bytes) 
-                if not data:
-                    logger.info("Receiving data stopped")    
+    if length_bytes < 28 or (length_bytes - 28) % 2:
+        raise ValueError('Expected a 28-byte header and int16 samples')
+    pending = bytearray()
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as stream:
+            stream.settimeout(1.0)
+            stream.connect((host, port))
+            logger.info('[DATA_READ] Connected to data port %s', port)
+            if ready_event is not None:
+                ready_event.set()
+            while not stop_event.is_set():
+                try:
+                    chunk = stream.recv(length_bytes)
+                except socket.timeout:
+                    continue
+                if not chunk:
                     break
-                else:
-                    logger.debug(f"[DATA_READ] Received data of length {len(data)}")
-            
-                raw_data[counter] = data
-                counter = counter + 1
-            except socket.timeout:
-                logger.debug("[DATA_READ] Socket timeout, no data received")
-                continue
-            except Exception as e:
-                logger.error(f"[DATA_READ] Error while receiving data: {e}")
-                continue
-    logger.info("[DATA_READ] Stopping data thread...")
+                pending.extend(chunk)
+                while True:
+                    offset = pending.find(b'FtH1')
+                    if offset < 0:
+                        # Preserve a possible magic prefix split across receives.
+                        pending[:] = pending[-3:]
+                        break
+                    if offset:
+                        del pending[:offset]
+                    if len(pending) < length_bytes:
+                        break
+                    raw_data[len(raw_data)] = bytes(pending[:length_bytes])
+                    del pending[:length_bytes]
+    except OSError as error:
+        logger.error('[DATA_READ] Connection failed: %s', error)
+    if pending:
+        logger.debug('[DATA_READ] Discarding %s incomplete trailing bytes', len(pending))
+    logger.info('[DATA_READ] Stopping data thread')
