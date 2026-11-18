@@ -50,12 +50,12 @@ or setter are supported.
 
 Returns all plate revisions as one UTF-8 JSON document in an IEEE definite-length
 block: `#<number-of-length-digits><decimal-byte-count><JSON>`, followed by CRLF.
-For the exact compact payload below, the byte count is 91 and the prefix is
-`#291`. The CRLF terminator is not included in the byte count.
+For the exact compact payload below, the byte count is 88 and the prefix is
+`#288`. The CRLF terminator is not included in the byte count.
 
 ```text
 > SYST:HARD:INFO?
-< #291{"status":"success","data":{"plates":{"sys":"1.0","con":"1.0","ana":"1.0","pep_tr":"1.0"}}}
+< #288{"status":"success","data":{"plates":{"sys":"1.0","con":"1.0","ana":"1.0","pwr":"1.0"}}}
 ```
 
 Use a binary-block reader, not a plain scalar `query()` followed by `json.loads`:
@@ -72,13 +72,13 @@ plates = document["data"]["plates"]
 
 Configure the PyVISA socket with `read_termination = "\r\n"` and
 `write_termination = "\r\n"`; the block reader consumes the trailing CRLF so
-that the next query starts at its own response. Each version is a string; an
+that the next query starts at its own response. The `pwr` field reports the power supply plate revision. Each version is a string; an
 unknown, malformed, duplicate, or oversized plate entry is `null`. The document
 is cached from `DEV_INFO.TXT` when the main firmware starts, so it describes
 provisioned revisions rather than live hardware detection. If the file is
 unreadable, the block contains
 `{"status":"error","message":"hardware information unavailable"}`. Use the
-block's length instead of assuming every response starts with `#291`.
+block's length instead of assuming every response starts with `#288`.
 
 `*IDN?` continues to report firmware identity, and `SYST:VERS?` continues to
 report the SCPI standard revision.

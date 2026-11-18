@@ -131,10 +131,11 @@ Invoke-RestMethod -Uri "http://192.168.200.18/api/v1/hardware_info"
 ```
 
 ```json
-{"status":"success","data":{"plates":{"sys":"1.0","con":"1.0","ana":"1.0","pep_tr":"1.0"}}}
+{"status":"success","data":{"plates":{"sys":"1.0","con":"1.0","ana":"1.0","pwr":"1.0"}}}
 ```
 
-The keys `sys`, `con`, `ana`, and `pep_tr` are always present. A missing,
+The keys `sys`, `con`, `ana`, and `pwr` are always present. The `pwr` field
+reports the power supply plate revision. A missing,
 malformed, duplicate, or oversized entry is `null` for that plate. Versions are
 strings, preserving major/minor components (for example `"1.10"`). These are the
 revisions provisioned in `/run/media/mmcblk0p1/DEV_INFO.TXT`, not live detection

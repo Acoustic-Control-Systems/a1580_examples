@@ -92,7 +92,7 @@ plates = get_parameter("hardware_info")
 ```
 
 Scalar parameters return their values. `hardware_info` returns a dictionary with
-`sys`, `con`, `ana`, and `pep_tr` revisions; an unknown revision is `None`.
+`sys`, `con`, `ana`, and `pwr` (power supply) revisions; an unknown revision is `None`.
 Failed requests return `None`. Use `set_parameter(name, value)` to change writable
 parameters. See [the REST reference](../REST_API.md) for response formats and errors.
 
