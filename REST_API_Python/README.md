@@ -106,6 +106,8 @@ parameters. See [the REST reference](../REST_API.md) for response formats and er
 Instead of WebSocket, you can also connect to the device's raw TCP socket (port 2758) to receive the same binary data stream. This may be useful for low-level integration or if WebSocket support is not available in your environment.
 See [common_functions.py](../SCPI_Python/common_functions.py) for example code to connect to the raw socket and parse data packets.
 
+**Use one data receiver at a time.** WebSocket and raw TCP port 2758 share one device stream; a new connection disconnects the previous receiver. Close all A1580 browser tabs and other stream clients before using raw TCP. A browser can reconnect and take the stream back. See [connection-switching scenarios](../README.md#data-stream-access).
+
 ### Typical Workflow
 
 1. Configure device via REST API

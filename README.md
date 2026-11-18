@@ -11,3 +11,20 @@ Examples for integration of A1580 Sonic Ultrasonic Pulser-Receiver frontend unit
 * [WebSocket client module](REST_API_Python/ascan_websocket.py) - Standalone WebSocket client for receiving A-scan data in real-time
 
 Install the requirements from the corresponding example directory before running its examples.
+
+## Data stream access
+
+Use one A-scan data receiver at a time: either WebSocket or raw TCP port 2758.
+The browser receives data over WebSocket. Both access methods share one device
+stream; a new data connection closes the previous receiver's connection.
+
+| Current receiver | New connection | Result |
+| --- | --- | --- |
+| Browser over WebSocket | A raw TCP client connects to port 2758 | The browser stream disconnects; the raw client takes over. |
+| Raw TCP client | Browser or a WebSocket script connects | The raw client disconnects; the WebSocket client takes over. |
+| Any data receiver | A second browser tab, WebSocket client, or raw client connects | The previous receiver disconnects; the new client takes over. |
+
+A browser can automatically reconnect and take the stream back. Before raw TCP
+capture, close all A1580 browser tabs and other stream clients. Before switching
+to WebSocket, disconnect the raw client and any other WebSocket receiver.
+SCPI commands on port 5025 can be used alongside the selected data stream.

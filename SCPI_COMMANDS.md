@@ -211,6 +211,8 @@ This property gets or sets number of samples in an acquired data vector.
 This property gets the TCP port number for data transfer. The command is used to establish a connection for data transfer between the instrument and a controlling device.
 After starting acquisition, the instrument will send acquired data to the controlling device via TCP connection to the specified port. The controlling device should establish a connection to the instrument using this port number before starting acquisition. The command is used in combination with Start acquisition and Stop acquisition commands.
 
+**Exclusive data access:** Use either raw TCP port 2758 or one WebSocket receiver. A new data connection disconnects the previous receiver. Close all A1580 browser tabs and other stream clients before raw capture. The separate SCPI command connection on port 5025 can remain open. See [connection-switching scenarios](README.md#data-stream-access).
+
 **Syntax:**
 ```
 DATA:PORT?
