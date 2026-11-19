@@ -45,6 +45,8 @@ The following common commands are registered by the SCPI implementation:
 
 ## Hardware plate revisions
 
+**Firmware availability:** From firmware 1.20; the pwr response field is available from firmware 1.21 (previously pep_tr).
+
 **Query:** `SYSTem:HARDware:INFO?` (short form `SYST:HARD:INFO?`). No parameters
 or setter are supported.
 
@@ -483,6 +485,8 @@ Sets or gets the delay between a trigger and the start of acquisition. Hardware 
 ```
 
 ## Periodic acquisition interval
+
+**Firmware availability:** From firmware 1.7.0, setting the interval does not change the selected trigger source.
 
 **Description:**
 This property sets or gets time in seconds between two consecutive acquisition in periodic (INTERNAL) mode.

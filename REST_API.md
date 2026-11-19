@@ -77,6 +77,8 @@ The API provides granular error reporting with the following error codes:
 
 ## User Data Endpoint
 
+**Firmware availability:** GET and POST /config/user-data from firmware 1.15; the documented 256 KiB payload limit is available from firmware 1.16.
+
 The firmware provides a separate endpoint for storing an opaque user-defined payload:
 
 - `GET /config/user-data` returns the stored payload as `application/octet-stream`.
@@ -117,6 +119,8 @@ Invoke-RestMethod -Method Post -Uri "http://192.168.200.18/config/user-data" -Co
 ```
 
 ## Hardware plate revisions (read-only)
+
+**Firmware availability:** From firmware 1.20; the pwr response field is available from firmware 1.21 (previously pep_tr).
 
 `GET /api/v1/hardware_info` returns all four provisioned plate revisions in one
 JSON document. In the complete Python example, call `get_parameter("hardware_info")`
@@ -418,13 +422,28 @@ The `/config` namespace provides grouped network configuration objects intended 
 ### Payload Definitions
 
 #### Ethernet Configuration (`dev.eth`)
+
+**Firmware availability:** `dhcp_enabled` is available from firmware 1.17.
+
+Both fields are strings. `ip_address` is required in every POST and specifies
+the device's IP address. `dhcp_enabled` controls the Ethernet DHCP server:
+`"1"` enables it and `"0"` disables it. The device keeps using `ip_address` in
+either mode. Omitting `dhcp_enabled` from a POST preserves its stored value.
+GET returns the stored flag, defaulting to `"1"` when it has not been stored.
+This setting leaves WLAN DHCP service unchanged.
+Changes take effect after the next device restart.
+
 ```json
 {
-  "ip_address": "192.168.200.18"
+  "ip_address": "192.168.200.18",
+  "dhcp_enabled": "1"
 }
 ```
 
 #### Wi-Fi AP Configuration (`dev.wlan`)
+
+Firmware availability: regdomain, channel_2g, and channel_5g are available from firmware 1.15.
+
 ```json
 {
   "ap_address": "192.168.210.1",
@@ -458,7 +477,8 @@ Invoke-RestMethod -Method Get -Uri "http://192.168.200.18:80/config/dev.eth"
 {
   "status": "success",
   "data": {
-    "ip_address": "192.168.200.18"
+    "ip_address": "192.168.200.18",
+    "dhcp_enabled": "1"
   }
 }
 ```
@@ -467,12 +487,12 @@ Invoke-RestMethod -Method Get -Uri "http://192.168.200.18:80/config/dev.eth"
 ```bash
 curl -X POST \
   -H "Content-Type: application/json" \
-  -d '{"ip_address":"192.168.200.18"}' \
+  -d '{"ip_address":"192.168.200.18","dhcp_enabled":"1"}' \
   "http://192.168.200.18:80/config/dev.eth"
 ```
 
 ```powershell
-Invoke-RestMethod -Method Post -Uri "http://192.168.200.18:80/config/dev.eth" -ContentType "application/json" -Body '{"ip_address":"192.168.200.18"}'
+Invoke-RestMethod -Method Post -Uri "http://192.168.200.18:80/config/dev.eth" -ContentType "application/json" -Body '{"ip_address":"192.168.200.18","dhcp_enabled":"1"}'
 ```
 
 **Response (200 OK):**
@@ -480,7 +500,35 @@ Invoke-RestMethod -Method Post -Uri "http://192.168.200.18:80/config/dev.eth" -C
 {
   "status": "success",
   "data": {
-    "ip_address": "192.168.200.18"
+    "ip_address": "192.168.200.18",
+    "dhcp_enabled": "1"
+  }
+}
+```
+
+#### Disable the Ethernet DHCP server
+
+The request must still include `ip_address`. This example keeps the device IP
+unchanged and disables DHCP offers to Ethernet clients.
+
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"ip_address":"192.168.200.18","dhcp_enabled":"0"}' \
+  "http://192.168.200.18:80/config/dev.eth"
+```
+
+```powershell
+Invoke-RestMethod -Method Post -Uri "http://192.168.200.18:80/config/dev.eth" -ContentType "application/json" -Body '{"ip_address":"192.168.200.18","dhcp_enabled":"0"}'
+```
+
+**Response (200 OK):**
+```json
+{
+  "status": "success",
+  "data": {
+    "ip_address": "192.168.200.18",
+    "dhcp_enabled": "0"
   }
 }
 ```
